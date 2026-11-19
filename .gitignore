@@ -30,3 +30,6 @@ __pycache__/
 # IDE
 /.idea/
 /.vscode/
+
+# 原始截图素材：只提交 docs/images 中挑选过的图片
+/截图-*/
