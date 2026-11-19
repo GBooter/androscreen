@@ -1,0 +1,11 @@
+[Unit]
+Description=Load the evdi kernel module for AndroScreen
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/modprobe evdi
+
+[Install]
+WantedBy=multi-user.target

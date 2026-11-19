@@ -1,0 +1,51 @@
+--- a/module/evdi_painter.c
++++ b/module/evdi_painter.c
+@@ -224,9 +224,21 @@
+ {
+ 	struct drm_framebuffer *fb = &efb->base;
+ 	struct drm_clip_rect *r;
++	/* Printed once because it never changes for a buffer, and it decides
++	 * whether full-width rectangles can take the single-pass path below: a
++	 * pitch wider than the user's stride breaks the contiguous run, and an
++	 * iomem mapping is slow to read however the copy is arranged.
++	 */
++	static bool reported_geometry;
+ 
+ 	EVDI_CHECKPT();
+ 
++	if (!reported_geometry) {
++		reported_geometry = true;
++		EVDI_INFO("grab geometry: pitch %d stride %d rects %d\n",
++			  fb->pitches[0], buf_byte_stride, num_rects);
++	}
++
+ #if defined(EVDI_HAVE_IOSYS_MAP) && defined(CONFIG_X86)
+ 	if (efb->is_from_xe)
+ 		return copy_primary_pixels_on_xe(efb, buffer, buf_byte_stride, max_x, max_y);
+@@ -251,6 +263,26 @@
+ 		EVDI_VERBOSE("copy rect %d,%d-%d,%d\n", r->x1, r->y1, r->x2,
+ 			     r->y2);
+ 
++		/* A rectangle that is as wide as the buffer and whose rows are as
++		 * wide as the source pitch is one contiguous run in both buffers,
++		 * so it can be flushed and handed over in a single pass. A moving
++		 * desktop arrives as exactly such a rectangle, and one clflush
++		 * plus one copy_to_user per row was the largest single cost of
++		 * grabbing it.
++		 */
++		if (y > 0 && r->x1 == 0 && byte_span == buf_byte_stride &&
++		    fb->pitches[0] == buf_byte_stride) {
++			const size_t byte_count = (size_t)y *
++						(size_t)buf_byte_stride;
++
++#if defined(CONFIG_X86)
++			drm_clflush_virt_range((void *)src, byte_count);
++#endif
++			if (copy_to_user(dst, src, byte_count))
++				return -EFAULT;
++			continue;
++		}
++
+ 		for (; y > 0; --y) {
+ #if defined(CONFIG_X86)
+ 			drm_clflush_virt_range((void *)src, byte_span);

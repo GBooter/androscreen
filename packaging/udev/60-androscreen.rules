@@ -1,0 +1,50 @@
+# AndroScreen — allow the logged-in desktop user to drive an Android phone
+# over USB. Install as /etc/udev/rules.d/60-androscreen.rules, then run:
+#
+#   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
+#
+# TAG+="uaccess" grants an ACL to the active local session user only; it does
+# not open the device to other accounts.
+
+# Android accessory mode: Google vendor id 0x18d1, product 0x2d00..0x2d05
+# (plain accessory, +adb, +audio, +audio+adb, +source variants).
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="2d0[0-5]", TAG+="uaccess"
+
+# AOA handshake happens *before* the phone switches to accessory mode, so the
+# normal-mode device node must be writable too.
+#
+# Xiaomi / Redmi
+SUBSYSTEM=="usb", ATTR{idVendor}=="2717", TAG+="uaccess"
+# OPPO
+SUBSYSTEM=="usb", ATTR{idVendor}=="22d9", TAG+="uaccess"
+# HTC
+SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", TAG+="uaccess"
+# Samsung
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", TAG+="uaccess"
+# Sony
+SUBSYSTEM=="usb", ATTR{idVendor}=="0fce", TAG+="uaccess"
+# Huawei
+SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", TAG+="uaccess"
+# OnePlus
+SUBSYSTEM=="usb", ATTR{idVendor}=="2a70", TAG+="uaccess"
+# MediaTek
+SUBSYSTEM=="usb", ATTR{idVendor}=="0e8d", TAG+="uaccess"
+# TCL / Alcatel
+SUBSYSTEM=="usb", ATTR{idVendor}=="1bbb", TAG+="uaccess"
+# ASUS
+SUBSYSTEM=="usb", ATTR{idVendor}=="0b05", TAG+="uaccess"
+# Lenovo / Motorola
+SUBSYSTEM=="usb", ATTR{idVendor}=="17ef", TAG+="uaccess"
+# Microsoft / Nokia
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", TAG+="uaccess"
+# vivo
+SUBSYSTEM=="usb", ATTR{idVendor}=="2d95", TAG+="uaccess"
+# ZTE / Nubia
+SUBSYSTEM=="usb", ATTR{idVendor}=="1ebf", TAG+="uaccess"
+
+# Fallback for every other vendor. Without it an unlisted phone fails the AOA
+# handshake with EACCES inside the daemon, and the user only sees "no phone".
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"
+
+# Virtual touchscreen created by the daemon through /dev/uinput.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess"

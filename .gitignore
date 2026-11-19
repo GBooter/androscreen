@@ -1,0 +1,32 @@
+# 构建产物
+/target/
+/dist/
+/packaging/out/
+build/
+/android/build/
+/android/app/build/
+/android/.gradle/
+
+# 二进制包
+*.deb
+*.tar.gz
+*.apk
+*.aab
+
+# 签名材料：release 证书与口令只留在本机
+*.keystore
+*.jks
+/android/local.properties
+
+# 日志与临时文件
+*.log
+*.tmp
+*.swp
+.DS_Store
+__pycache__/
+*.py[cod]
+.dev-env/
+
+# IDE
+/.idea/
+/.vscode/

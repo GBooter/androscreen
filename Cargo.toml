@@ -1,0 +1,71 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/host", "crates/panel"]
+
+[workspace.package]
+version = "0.4.29"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1"
+env_logger = "0.11"
+libc = "0.2"
+log = "0.4"
+rusb = "0.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+unwrap_used = "warn"
+panic_in_result_fn = "warn"
+missing_panics_doc = "warn"
+missing_errors_doc = "warn"
+missing_assert_message = "warn"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+undocumented_unsafe_blocks = "warn"
+multiple_unsafe_ops_per_block = "warn"
+fn_params_excessive_bools = "warn"
+struct_excessive_bools = "warn"
+clone_on_ref_ptr = "warn"
+redundant_clone = "warn"
+string_add = "warn"
+wildcard_imports = "warn"
+dbg_macro = "warn"
+todo = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+# FFI 层需要把内核结构体里的整数互相转换；这些转换都由对应字段的位宽保证。
+as_conversions = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+# 百分比和 EDID 刷新率只用于展示或 0.1 Hz 级校验，浮点尾数足够。
+cast_precision_loss = "allow"
+
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+module_inception = "allow"
+enum_glob_use = "allow"
+
+# winit draws its own Adwaita title bar on Wayland whenever the compositor
+# reports Client-side decorations, and deepin/Treeland draws its own on top:
+# two title bars on one window. The vendored copy never builds that frame, so
+# only the compositor's decorations remain. See vendor/winit for the patch.
+[patch.crates-io]
+winit = { path = "vendor/winit" }

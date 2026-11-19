@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=安卓副屏
+Name[en_US]=AndroScreen
+GenericName=副屏服务设置
+GenericName[en_US]=Secondary display settings
+Comment=把安卓手机变成电脑的扩展屏幕，并在这里开关副屏服务
+Comment[en_US]=Use an Android phone as a secondary display, and control the service from here
+Exec=androscreen-settings
+Icon=androscreen
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=android;screen;display;monitor;usb;副屏;投屏;
+StartupNotify=true
+StartupWMClass=androscreen-settings
