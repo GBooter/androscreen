@@ -5,7 +5,7 @@
 [![版本](https://img.shields.io/badge/version-0.4.29-blue)](https://github.com/GBooter/androscreen/releases)
 [![平台](https://img.shields.io/badge/platform-Linux-lightgrey)](#环境要求)
 [![rust](https://img.shields.io/badge/rust-1.85%2B-orange)](https://www.rust-lang.org)
-[![许可](https://img.shields.io/badge/license-MIT-green)](#许可协议)
+[![许可](https://img.shields.io/badge/license-GPLv3-blue)](#许可协议)
 
 一根 USB 数据线，把 Android 手机变成真正的第二块显示器：不用开 USB 调试、不依赖 Wi‑Fi、不用装驱动、也不用从应用商店下载。
 
@@ -137,4 +137,6 @@ androscreen.keyPassword=...
 
 ## 许可协议
 
-MIT。
+GNU 通用公共许可证第 3 版，全文见 [LICENSE](LICENSE)。
+
+版权所有 (C) 2026 GBooter。

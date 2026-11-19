@@ -5,7 +5,7 @@
 [![version](https://img.shields.io/badge/version-0.4.29-blue)](https://github.com/GBooter/androscreen/releases)
 [![platform](https://img.shields.io/badge/platform-Linux-lightgrey)](#requirements)
 [![rust](https://img.shields.io/badge/rust-1.85%2B-orange)](https://www.rust-lang.org)
-[![license](https://img.shields.io/badge/license-MIT-green)](#license)
+[![license](https://img.shields.io/badge/license-GPLv3-blue)](#license)
 
 Turn an Android phone into a real second monitor over a single USB cable — no USB
 debugging, no Wi-Fi, no app store, no drivers on the phone.
@@ -166,4 +166,6 @@ The same values can be supplied as `ANDROSCREEN_STORE_FILE`,
 
 ## License
 
-MIT.
+GNU General Public License v3.0 — see [LICENSE](LICENSE).
+
+Copyright (C) 2026 GBooter.
