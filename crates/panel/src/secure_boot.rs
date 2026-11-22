@@ -19,6 +19,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::i18n::{self, Lang, Words};
+
 /// Where DKMS keeps the public half of the key that signs its modules.
 const DKMS_KEY: &str = "/var/lib/dkms/mok.pub";
 
@@ -31,6 +33,13 @@ const MOK_NEW: &str = "/sys/firmware/efi/efivars/MokNew-605dab50-e046-4300-abb6-
 /// The generated MOK password, kept beside the daemon's settings.
 const MOK_PASSWORD: &str = "mok-password";
 
+/// Left by the package when it deliberately did not load evdi.
+///
+/// The installer refuses to load a display driver into a running X11 session
+/// because deepin 25.3 freezes there; it leaves this note instead, and `/run`
+/// clears it on the reboot that makes the module live.
+const PENDING_REBOOT: &str = "/run/androscreen/pending-reboot";
+
 /// What the firmware and the kernel say about the module this app needs.
 #[expect(
     clippy::struct_excessive_bools,
@@ -41,6 +50,8 @@ pub(crate) struct Status {
     pub(crate) secure_boot: bool,
     /// evdi is loaded, which means nothing is being refused right now.
     pub(crate) loaded: bool,
+    /// A virtual display card exists, which is what the daemon opens.
+    pub(crate) has_card: bool,
     /// evdi is built for the running kernel, so an enrollment could help.
     pub(crate) built: bool,
     /// The public key that would have to be enrolled, when there is one.
@@ -49,12 +60,15 @@ pub(crate) struct Status {
     pub(crate) pending: bool,
     /// The password that request expects, when it was generated here.
     pub(crate) password: Option<String>,
+    /// The installer left the module for the next boot on purpose.
+    pub(crate) pending_reboot: bool,
 }
 
 impl Status {
     pub(crate) fn read() -> Self {
         let secure_boot = secure_boot_enabled();
         let loaded = Path::new("/sys/module/evdi").exists();
+        let has_card = evdi_card_present();
         let built = module_built();
         let pending = enrollment_pending();
         let blocked = secure_boot && !loaded && built;
@@ -67,6 +81,7 @@ impl Status {
         Self {
             secure_boot,
             loaded,
+            has_card,
             built,
             key: Path::new(DKMS_KEY)
                 .is_file()
@@ -77,7 +92,28 @@ impl Status {
             } else {
                 None
             },
+            // A usable module already answered the question, so a stale note
+            // from an earlier install is not a reason to ask for a reboot. A
+            // module that was never built is not one either: a reboot cannot
+            // fix a missing build.
+            pending_reboot: built
+                && !(loaded && has_card)
+                && Path::new(PENDING_REBOOT).exists(),
         }
+    }
+
+    /// Whether the daemon has a virtual display card to open.
+    pub(crate) fn usable(&self) -> bool {
+        self.loaded && self.has_card
+    }
+
+    /// Whether the only thing between the user and a working display is a reboot.
+    ///
+    /// This is the normal state right after a first install: the package did not
+    /// load the driver into the running X11 session (the desktop would freeze),
+    /// and the boot-time `modules-load.d` entry will do it next time.
+    pub(crate) fn reboot_required(&self) -> bool {
+        self.pending_reboot
     }
 
     /// Whether the module is missing *because the firmware will not take it*.
@@ -117,6 +153,21 @@ fn enrollment_pending() -> bool {
     Path::new(MOK_NEW).exists()
 }
 
+/// Whether evdi created a card, which is what `initial_device_count` controls.
+///
+/// evdi's only connector is DVI-I, so a `card*-DVI-I-*` entry under
+/// `/sys/class/drm` is a card the daemon can open; a module loaded with a count
+/// of zero leaves the daemon with nothing to use.
+fn evdi_card_present() -> bool {
+    std::fs::read_dir("/sys/class/drm").is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            name.starts_with("card") && name.contains("-DVI-I-")
+        })
+    })
+}
+
 /// What the switch asks the firmware to do at the next boot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Action {
@@ -144,21 +195,27 @@ pub(crate) enum Outcome {
 /// which is the moment the user agreed to in the window. The MOK password is
 /// handed to the tool on standard input because the dialog has no terminal to
 /// prompt in; the same password is typed on the blue screen later, so it is
-/// remembered until then.
+/// remembered until then. Everything that can go wrong is reported in `lang`,
+/// because it is read in the window like any other sentence.
 ///
 /// # Errors
 ///
 /// Returns the sentence to show in the window when there is no key to enroll or
 /// when the authorization or the tool fails.
-pub(crate) fn enroll(action: Action) -> Result<Outcome, String> {
+pub(crate) fn enroll(action: Action, lang: Lang) -> Result<Outcome, String> {
     let key = Path::new(DKMS_KEY);
     let password = match action {
         Action::Allow => {
             if !key.is_file() {
-                return Err(
-                    "找不到 DKMS 签名密钥（/var/lib/dkms/mok.pub），请先重新编译 evdi 模块。"
-                        .to_owned(),
-                );
+                return Err(match lang {
+                    Lang::Zh => {
+                        "找不到 DKMS 签名密钥（/var/lib/dkms/mok.pub），请先重新编译 evdi 模块。"
+                    }
+                    Lang::En => {
+                        "No DKMS signing key at /var/lib/dkms/mok.pub; rebuild the evdi module first."
+                    }
+                }
+                .to_owned());
             }
             Some(new_password())
         }
@@ -180,7 +237,9 @@ pub(crate) fn enroll(action: Action) -> Result<Outcome, String> {
         command.stdin(Stdio::piped());
     }
 
-    let mut child = command.spawn().map_err(|_| manual_instruction(None))?;
+    let mut child = command
+        .spawn()
+        .map_err(|_| i18n::manual_instruction(lang, None))?;
     if let Some(password) = &password {
         // mokutil reads the password twice from standard input, which is what
         // lets this work without a terminal to prompt in.
@@ -190,12 +249,12 @@ pub(crate) fn enroll(action: Action) -> Result<Outcome, String> {
             .is_some_and(|mut stdin| write!(stdin, "{password}\n{password}\n").is_ok());
         if !piped {
             let _ = child.wait();
-            return Err("没能把 MOK 密码交给 mokutil。".to_owned());
+            return Err(Words::of(lang).password_lost.to_owned());
         }
     }
     let output = child
         .wait_with_output()
-        .map_err(|_| manual_instruction(None))?;
+        .map_err(|_| i18n::manual_instruction(lang, None))?;
 
     if output.status.success() {
         if let Some(password) = password {
@@ -210,9 +269,10 @@ pub(crate) fn enroll(action: Action) -> Result<Outcome, String> {
     // pkexec exits 126/127 when the dialog was dismissed or refused; it has
     // nothing to say on stderr, and the user should hear that nothing changed.
     if matches!(output.status.code(), Some(126 | 127)) {
-        return Err("授权被取消，没有登记任何内容。".to_owned());
+        return Err(Words::of(lang).enrollment_cancelled.to_owned());
     }
-    Err(manual_instruction(
+    Err(i18n::manual_instruction(
+        lang,
         (!detail.is_empty()).then_some(detail.as_str()),
     ))
 }
@@ -257,17 +317,4 @@ fn remembered_password() -> Option<String> {
     let text = std::fs::read_to_string(password_path()?).ok()?;
     let text = text.trim().to_owned();
     (!text.is_empty()).then_some(text)
-}
-
-/// The fallback sentence, with the exact command that does the same thing.
-fn manual_instruction(detail: Option<&str>) -> String {
-    let mut message = String::from(
-        "登记没能完成，可以在终端运行：sudo mokutil --import /var/lib/dkms/mok.pub（会提示设置两次 MOK 密码，重启后在蓝屏输入同一个密码）",
-    );
-    if let Some(detail) = detail {
-        message.push('（');
-        message.push_str(detail.lines().next().unwrap_or(detail));
-        message.push('）');
-    }
-    message
 }

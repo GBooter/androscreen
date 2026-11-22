@@ -2,7 +2,7 @@
 
 [English](README.md) | **简体中文**
 
-[![版本](https://img.shields.io/badge/version-0.4.29-blue)](https://github.com/GBooter/androscreen/releases)
+[![版本](https://img.shields.io/badge/version-0.4.31-blue)](https://github.com/GBooter/androscreen/releases)
 [![平台](https://img.shields.io/badge/platform-Linux-lightgrey)](#环境要求)
 [![rust](https://img.shields.io/badge/rust-1.85%2B-orange)](https://www.rust-lang.org)
 [![许可](https://img.shields.io/badge/license-GPLv3-blue)](#许可协议)
@@ -71,11 +71,13 @@ flowchart LR
 从 [Releases 页面](https://github.com/GBooter/androscreen/releases) 下载安装包，然后：
 
 ```bash
-sudo apt install ./androscreen_0.4.29_amd64.deb
-sha256sum -c androscreen_0.4.29_amd64.deb.sha256   # 可选，校验完整性
+sudo apt install ./androscreen_0.4.31_amd64.deb
+sha256sum -c androscreen_0.4.31_amd64.deb.sha256   # 可选，校验完整性
 ```
 
 安装包会装上守护进程、设置窗口、udev 规则、evdi 的 DKMS 源码，以及位于 `/usr/share/androscreen/androscreen.apk` 的手机端应用。
+
+首次安装在 X11 桌面上需要重启一次：登录期间加载显卡驱动会让 deepin 25.3 的桌面卡死，所以安装包把它留到下次开机，设置窗口会显示“重启后即可使用副屏”并给出一个“立即重启”按钮。Treeland/Wayland 会话不需要重启，后续升级也不需要。
 
 1. 插上手机，Android 弹出提示时选择 **文件传输**。
 2. 打开手机端应用（或安装随包的 APK），允许 USB 配件访问。

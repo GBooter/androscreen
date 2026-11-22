@@ -34,8 +34,8 @@ android {
         applicationId = "com.androscreen.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 35
-        versionName = "0.4.29"
+        versionCode = 37
+        versionName = "0.4.31"
     }
 
     signingConfigs {
@@ -59,7 +59,11 @@ android {
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.findByName("shared")
+            // 有发版证书时才用它；没有就留着 AGP 自己的调试证书。
+            // 直接把 findByName 的结果赋给 signingConfig，在没有证书的机器上会是
+            // null，连调试签名一起覆盖掉，产出 app-debug-unsigned.apk —— 装不进手机，
+            // 也就没法在真机上验证界面。
+            signingConfigs.findByName("shared")?.let { signingConfig = it }
         }
         release {
             // The DEB ships this build, so it has to be signed: an unsigned

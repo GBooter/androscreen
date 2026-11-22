@@ -33,3 +33,8 @@ __pycache__/
 
 # 原始截图素材：只提交 docs/images 中挑选过的图片
 /截图-*/
+
+# 预览工具的输出（examples/preview.rs 写到当前目录）
+/preview-*.ppm
+/preview-*.png
+/.workbuddy/

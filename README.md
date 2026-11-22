@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-[![version](https://img.shields.io/badge/version-0.4.29-blue)](https://github.com/GBooter/androscreen/releases)
+[![version](https://img.shields.io/badge/version-0.4.31-blue)](https://github.com/GBooter/androscreen/releases)
 [![platform](https://img.shields.io/badge/platform-Linux-lightgrey)](#requirements)
 [![rust](https://img.shields.io/badge/rust-1.85%2B-orange)](https://www.rust-lang.org)
 [![license](https://img.shields.io/badge/license-GPLv3-blue)](#license)
@@ -90,12 +90,17 @@ Download the package from the [releases page](https://github.com/GBooter/androsc
 then:
 
 ```bash
-sudo apt install ./androscreen_0.4.29_amd64.deb
-sha256sum -c androscreen_0.4.29_amd64.deb.sha256   # optional
+sudo apt install ./androscreen_0.4.31_amd64.deb
+sha256sum -c androscreen_0.4.31_amd64.deb.sha256   # optional
 ```
 
 The package installs the daemon, the settings window, udev rules, the evdi DKMS
 source and the phone app at `/usr/share/androscreen/androscreen.apk`.
+
+The first install needs one reboot on an X11 desktop: loading a display driver
+into a live session freezes deepin 25.3, so the package leaves the module for the
+next boot and the settings window offers a "restart now" button. A
+Treeland/Wayland session needs no reboot, and neither do later upgrades.
 
 1. Plug the phone in and pick **File transfer** when Android asks.
 2. Open the phone app (or install the bundled APK) and allow the USB accessory.

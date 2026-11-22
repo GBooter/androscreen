@@ -2,4 +2,100 @@
 <resources>
     <!-- Chinese builds call the app 安卓副屏 everywhere it names itself. -->
     <string name="app_name">安卓副屏</string>
+
+    <!-- Shared words -->
+    <string name="status_connected">已连接</string>
+    <string name="status_waiting">等待连接</string>
+    <string name="use_as_display">用作扩展屏</string>
+    <string name="goto_settings">设置</string>
+    <string name="got_it">知道了</string>
+    <string name="subtitle">USB 扩展副屏</string>
+    <string name="no_cable">副屏未连接</string>
+
+    <!-- Dashboard -->
+    <string name="dash_ready_detail">手机可用作电脑的扩展屏幕</string>
+    <string name="dash_waiting_detail">插入数据线后自动连接</string>
+    <string name="gauge_processor">处理器</string>
+    <string name="gauge_memory">内存</string>
+    <string name="gauge_threads">%1$d 线程</string>
+    <string name="status_no_data">等待电脑数据</string>
+    <string name="core_load">每核负载</string>
+    <string name="temp_title">电脑温度</string>
+    <string name="temp_hottest">最高 %1$s°C</string>
+    <string name="temp_no_sensor">无传感器</string>
+    <string name="temp_pending">待更新</string>
+    <string name="temp_empty_no_cable">插好数据线后，这里会显示电脑各部件的实时温度</string>
+    <string name="temp_empty_old_host">电脑端程序需要更新到 0.4.0 才能上报温度</string>
+    <string name="temp_empty_no_sensor">这台电脑没有可读取的温度传感器</string>
+    <string name="uptime_title">运行时长</string>
+    <string name="uptime_hint">电脑已持续运行</string>
+    <string name="uptime_days">%1$d天 %2$d时</string>
+    <string name="uptime_hours">%1$d时 %2$d分</string>
+    <string name="uptime_minutes">%1$d分</string>
+    <string name="load_title">系统负载</string>
+    <string name="load_hint">1 / 5 / 15 分钟</string>
+    <string name="hint_attached">保持亮屏 · 支持多指触控</string>
+    <string name="hint_detached">插线自动连接 · 无需 USB 调试</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="auto_start_title">插线后自动开始副屏</string>
+    <string name="auto_start_on">插上数据线就自动把手机变成电脑副屏</string>
+    <string name="auto_start_off">插线后只显示状态页，需要时再手动开始</string>
+    <string name="host_audio_title">播放电脑的声音</string>
+    <string name="host_audio_on">副屏运行时，电脑的声音从手机放出来</string>
+    <string name="host_audio_off">只传画面，电脑的声音仍留在电脑上</string>
+    <string name="compat_title">兼容模式（1080p / 30 帧）</string>
+    <string name="compat_on">画面限制在 1080p、30 帧，下次开始副屏时生效</string>
+    <string name="compat_off">按手机屏幕的分辨率传输，画面更清晰</string>
+    <string name="file_transfer_title">改用文件传输</string>
+    <string name="file_transfer_link">改用文件传输</string>
+    <string name="file_transfer_body">副屏和文件管理不能同时占着数据线。释放后手机会断开副屏，在电脑上就能看到手机存储。</string>
+    <string name="release_usb">释放 USB，改用文件传输</string>
+    <string name="language_title">语言</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_chinese">中文</string>
+    <string name="language_english">English</string>
+
+    <!-- The secondary display itself -->
+    <string name="switching_direction">正在切换方向…</string>
+    <string name="picture_returns">画面稍后自动恢复</string>
+    <string name="starting_screen">正在启动副屏…</string>
+    <string name="creating_display">电脑端正在创建虚拟显示器</string>
+    <string name="exit_hint_expanded">退出副屏，长按退出</string>
+    <string name="exit_hint_collapsed">退出副屏，轻点展开</string>
+    <string name="expand_exit_panel">展开退出面板</string>
+    <string name="collapse_exit_panel">收起退出面板</string>
+    <string name="hold_to_exit_hint">长按退出副屏</string>
+    <string name="keep_holding">继续按住…</string>
+    <string name="hold_to_exit">长按退出</string>
+
+    <!-- Notices: what went wrong, and which end of the cable to look at -->
+    <string name="notice_usb_permission">请在系统弹窗中允许 AndroScreen 访问 USB 设备</string>
+    <string name="notice_permission_failed">无法请求 USB 权限：%1$s</string>
+    <string name="unknown_error">未知错误</string>
+    <string name="notice_usb_unavailable">USB 连接暂不可用，请重新插拔数据线</string>
+    <string name="notice_permission_denied">未获得 USB 访问权限，无法连接</string>
+    <string name="notice_reconnecting">正在重新连接画面…</string>
+    <string name="notice_released">已请求释放数据线，稍后在手机上选择“文件传输”即可看到存储</string>
+    <string name="notice_disconnected">连接已断开，重新插入数据线即可恢复</string>
+    <string name="notice_no_picture">电脑端没有送来画面，请确认电脑上的 AndroScreen 服务正在运行</string>
+    <string name="notice_start_failed">画面没能开始：%1$s</string>
+    <string name="notice_accessory_unknown">手机系统还没有识别到电脑的副屏请求。请拔插数据线重试；如果一直如此，可能是这台手机限制了 USB 配件模式</string>
+    <string name="notice_host_missing">数据线已连接，但没有找到电脑端的 AndroScreen。请确认电脑上的 androscreen 服务正在运行</string>
+
+    <!-- Why the virtual screen failed on the computer side -->
+    <string name="fail_no_evdi">电脑端虚拟屏创建失败：找不到 evdi 虚拟显示器。请在电脑上运行 androscreen --evdi-scan 检查</string>
+    <string name="fail_not_configured">电脑端没有启用新屏幕，请在系统显示设置中打开 AndroScreen 后重试</string>
+    <string name="fail_encoder">电脑端视频编码不可用，请确认已安装 ffmpeg</string>
+    <string name="fail_generic">电脑端虚拟屏创建失败：%1$s</string>
+
+    <!-- Host error codes -->
+    <string name="err_touch">电脑端触控注入不可用，副屏仍可正常显示</string>
+    <string name="err_audio">电脑端声音转发不可用，副屏仍可正常显示</string>
+    <string name="err_busy">电脑端已经在投屏</string>
+    <string name="err_display">电脑端无法创建扩展屏</string>
+    <string name="err_encoder">电脑端视频编码不可用</string>
+    <string name="err_bad_request">屏幕参数不被电脑端接受</string>
+    <string name="err_generic">电脑端提示：%1$s</string>
 </resources>

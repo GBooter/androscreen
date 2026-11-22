@@ -62,6 +62,18 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private var sensorManager: SensorManager? = null
 
+    /**
+     * Puts the chosen language in front of everything the activity draws.
+     *
+     * Every `R.string` behind this context — including the ones Compose reads
+     * through `stringResource` — answers in that language, so the choice needs
+     * no other plumbing. The context is fixed once attached, which is why
+     * changing the language recreates the activity.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguageStore.wrap(newBase))
+    }
+
     private val uiState = mutableStateOf(UiState())
     private val statsState = mutableStateOf<HostStats?>(null)
 
@@ -275,6 +287,10 @@ class MainActivity : ComponentActivity() {
             autoStart = wantsScreen,
             hostAudio = hostAudio,
             compatMode = compatMode,
+            // A language switch recreates the activity, and the user who just
+            // tapped it belongs on the page they tapped it on.
+            settingsOpen = AppLanguageStore.takeSettingsOpen(this),
+            language = AppLanguageStore.load(this),
         )
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -316,7 +332,7 @@ class MainActivity : ComponentActivity() {
                         onTouch = { payload -> link?.sendTouch(payload) },
                         onExit = {
                             stopScreen(
-                                reason = "用户退出副屏",
+                                reason = "the user left the screen",
                                 notifyHost = true,
                                 forgetScreen = true,
                             )
@@ -331,10 +347,12 @@ class MainActivity : ComponentActivity() {
                         hostAudio = state.hostAudio,
                         compatMode = state.compatMode,
                         attached = state.attached,
+                        language = state.language,
                         version = BuildConfig.VERSION_NAME,
                         onAutoStart = ::onAutoStartChanged,
                         onHostAudio = ::onHostAudioChanged,
                         onCompatMode = ::onCompatModeChanged,
+                        onLanguage = ::onLanguageChanged,
                         onRelease = ::onReleaseUsb,
                         onBack = { uiState.value = uiState.value.copy(settingsOpen = false) },
                     )
@@ -384,7 +402,7 @@ class MainActivity : ComponentActivity() {
         started = false
         mainHandler.removeCallbacks(accessoryPoll)
         if (screenRequested) {
-            stopScreen(reason = "手机退到后台", notifyHost = true, forgetScreen = false)
+            stopScreen(reason = "the app went to the background", notifyHost = true, forgetScreen = false)
         }
         unregisterUsbReceiver()
         super.onStop()
@@ -495,12 +513,15 @@ class MainActivity : ComponentActivity() {
         if (!usbManager.hasPermission(accessory)) {
             pendingAccessory = accessory
             uiState.value = uiState.value.copy(
-                notice = "请在系统弹窗中允许 AndroScreen 访问 USB 设备",
+                notice = getString(R.string.notice_usb_permission),
             )
             runCatching { usbManager.requestPermission(accessory, permissionIntent()) }
                 .onFailure {
                     uiState.value = uiState.value.copy(
-                        notice = "无法请求 USB 权限：${it.message ?: "未知错误"}",
+                        notice = getString(
+                            R.string.notice_permission_failed,
+                            it.message ?: getString(R.string.unknown_error),
+                        ),
                     )
                 }
             return
@@ -515,7 +536,7 @@ class MainActivity : ComponentActivity() {
         if (descriptor == null) {
             Log.w(TAG, "openAccessory returned null")
             uiState.value = uiState.value.copy(
-                notice = "USB 连接暂不可用，请重新插拔数据线",
+                notice = getString(R.string.notice_usb_unavailable),
             )
             return
         }
@@ -599,7 +620,7 @@ class MainActivity : ComponentActivity() {
         if (welcome == null) return
         Log.i(TAG, "the host restarted with the cable in; greeting again")
         welcome = null
-        stopScreen(reason = "电脑端忘记了会话", notifyHost = false, forgetScreen = false)
+        stopScreen(reason = "the host forgot the session", notifyHost = false, forgetScreen = false)
         mainHandler.removeCallbacks(helloRetry)
         mainHandler.postDelayed(helloRetry, HELLO_RETRY_MS)
     }
@@ -666,7 +687,7 @@ class MainActivity : ComponentActivity() {
                 if (!screenRequested) return
                 val reason = message.reason
                 stopScreen(
-                    reason = "电脑端结束了画面：$reason",
+                    reason = "the host ended the picture: $reason",
                     notifyHost = false,
                     forgetScreen = false,
                 )
@@ -833,16 +854,16 @@ class MainActivity : ComponentActivity() {
         if (!startRetried && activeLink != null) {
             startRetried = true
             Log.w(TAG, "no picture arrived; asking the desktop once more")
-            uiState.value = uiState.value.copy(notice = "正在重新连接画面…")
+            uiState.value = uiState.value.copy(notice = getString(R.string.notice_reconnecting))
             sendScreenRequest(activeLink)
             armStartTimeout()
             return
         }
         startRetried = false
-        stopScreen(reason = "电脑端没有送来画面", notifyHost = true, forgetScreen = false)
+        stopScreen(reason = "no picture arrived from the host", notifyHost = true, forgetScreen = false)
         uiState.value = uiState.value.copy(
-            notice = lastPipelineError?.let { "画面没能开始：$it" }
-                ?: "电脑端没有送来画面，请确认电脑上的 AndroScreen 服务正在运行",
+            notice = lastPipelineError?.let { getString(R.string.notice_start_failed, it) }
+                ?: getString(R.string.notice_no_picture),
         )
     }
 
@@ -875,10 +896,9 @@ class MainActivity : ComponentActivity() {
     private fun accessoryMissingNotice(): String {
         val listed = runCatching { usbManager.accessoryList }.getOrNull()
         return if (listed == null) {
-            "手机系统还没有识别到电脑的副屏请求。请拔插数据线重试；" +
-                "如果一直如此，可能是这台手机限制了 USB 配件模式"
+            getString(R.string.notice_accessory_unknown)
         } else {
-            "数据线已连接，但没有找到电脑端的 AndroScreen。请确认电脑上的 androscreen 服务正在运行"
+            getString(R.string.notice_host_missing)
         }
     }
 
@@ -928,6 +948,21 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Stores the language and rebuilds the activity around it.
+     *
+     * The resources a page draws from are fixed when the context is attached,
+     * so the only way to change every string at once is a fresh activity. The
+     * note left behind brings the settings page back, so the switch lands where
+     * the user pressed it instead of on the dashboard.
+     */
+    private fun onLanguageChanged(language: AppLanguage) {
+        AppLanguageStore.save(this, language)
+        uiState.value = uiState.value.copy(language = language)
+        AppLanguageStore.markSettingsOpen(this)
+        recreate()
+    }
+
+    /**
      * Asks the host to let go of the port.
      *
      * Accessory mode and file transfer cannot share the cable, so the only way
@@ -939,19 +974,19 @@ class MainActivity : ComponentActivity() {
         if (active == null) {
             // Nothing holds the port, so there is nothing to give back; the
             // settings page stays where the user put it.
-            uiState.value = uiState.value.copy(notice = "数据线未连接")
+            uiState.value = uiState.value.copy(notice = getString(R.string.no_cable))
             return
         }
         if (screenRequested) {
             // Releasing the cable is not a decision about the next plug-in, so
             // the automatic switch keeps whatever the user set it to.
-            stopScreen(reason = "释放数据线", notifyHost = true, forgetScreen = false)
+            stopScreen(reason = "the cable was released", notifyHost = true, forgetScreen = false)
         }
         active.sendControl(ControlCodec.release(reason))
         Log.i(TAG, "asked the host to release the USB port: $reason")
         uiState.value = uiState.value.copy(
             settingsOpen = false,
-            notice = "已请求释放数据线，稍后在手机上选择“文件传输”即可看到存储",
+            notice = getString(R.string.notice_released),
         )
     }
 
@@ -998,7 +1033,7 @@ class MainActivity : ComponentActivity() {
             // A revive is already reaching for the daemon again; telling the
             // user to unplug the cable would only send them off doing that.
             notice = if (!reconnect && wasDisplay && hadLink) {
-                "连接已断开，重新插入数据线即可恢复"
+                getString(R.string.notice_disconnected)
             } else {
                 null
             },
@@ -1155,26 +1190,25 @@ class MainActivity : ComponentActivity() {
         if (reason.isEmpty()) return null
         return when {
             reason.contains("no evdi virtual display") ->
-                "电脑端虚拟屏创建失败：找不到 evdi 虚拟显示器。请在电脑上运行 " +
-                    "androscreen --evdi-scan 检查"
+                getString(R.string.fail_no_evdi)
             reason.contains("compositor did not configure") ->
-                "电脑端没有启用新屏幕，请在系统显示设置中打开 AndroScreen 后重试"
+                getString(R.string.fail_not_configured)
             reason.contains("ffmpeg") || reason.contains("encoder") ->
-                "电脑端视频编码不可用，请确认已安装 ffmpeg"
+                getString(R.string.fail_encoder)
             // The daemon describes the step that failed; repeating it is more
             // use than the generic sentence it used to be replaced with.
-            else -> "电脑端虚拟屏创建失败：$reason"
+            else -> getString(R.string.fail_generic, reason)
         }
     }
 
     private fun hostError(message: HostMessage.HostError): String = when (message.code) {
-        "touch_unavailable" -> "电脑端触控注入不可用，副屏仍可正常显示"
-        "audio_unavailable" -> "电脑端声音转发不可用，副屏仍可正常显示"
-        "screen_busy" -> "电脑端已经在投屏"
-        "display_unavailable" -> screenFailure(message.message) ?: "电脑端无法创建扩展屏"
-        "encoder_unavailable" -> "电脑端视频编码不可用"
-        "bad_request" -> "屏幕参数不被电脑端接受"
-        else -> message.message.ifEmpty { "电脑端提示：${message.code}" }
+        "touch_unavailable" -> getString(R.string.err_touch)
+        "audio_unavailable" -> getString(R.string.err_audio)
+        "screen_busy" -> getString(R.string.err_busy)
+        "display_unavailable" -> screenFailure(message.message) ?: getString(R.string.err_display)
+        "encoder_unavailable" -> getString(R.string.err_encoder)
+        "bad_request" -> getString(R.string.err_bad_request)
+        else -> message.message.ifEmpty { getString(R.string.err_generic, message.code) }
     }
 
     private fun registerUsbReceiver() {
@@ -1235,7 +1269,7 @@ class MainActivity : ComponentActivity() {
                 openAccessory(accessory)
             } else if (expected != null && sameAccessory(accessory, expected)) {
                 uiState.value = uiState.value.copy(
-                    notice = "未获得 USB 访问权限，无法连接",
+                    notice = getString(R.string.notice_permission_denied),
                 )
             }
         }

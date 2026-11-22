@@ -1,7 +1,9 @@
 package com.androscreen.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,14 +32,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.androscreen.app.AppLanguage
 import com.androscreen.app.R
 
 /**
  * The switches a user needs: whether the phone takes over the screen by itself,
- * whether it plays the computer's sound, and how to hand the cable back to the
- * file manager without unplugging it.
+ * whether it plays the computer's sound, how to hand the cable back to the file
+ * manager without unplugging it, and which language the app speaks.
  */
 @Composable
 fun SettingsScreen(
@@ -45,10 +49,12 @@ fun SettingsScreen(
     hostAudio: Boolean,
     compatMode: Boolean,
     attached: Boolean,
+    language: AppLanguage,
     version: String,
     onAutoStart: (Boolean) -> Unit,
     onHostAudio: (Boolean) -> Unit,
     onCompatMode: (Boolean) -> Unit,
+    onLanguage: (AppLanguage) -> Unit,
     onRelease: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -81,7 +87,7 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    "设置",
+                    stringResource(R.string.settings_title),
                     color = Palette.TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -90,12 +96,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(22.dp))
 
             SwitchCard(
-                title = "插线后自动开始副屏",
-                summary = if (autoStart) {
-                    "插上数据线就自动把手机变成电脑副屏"
-                } else {
-                    "插线后只显示状态页，需要时再手动开始"
-                },
+                title = stringResource(R.string.auto_start_title),
+                summary = stringResource(
+                    if (autoStart) R.string.auto_start_on else R.string.auto_start_off,
+                ),
                 checked = autoStart,
                 onCheckedChange = onAutoStart,
             )
@@ -103,12 +107,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(14.dp))
 
             SwitchCard(
-                title = "播放电脑的声音",
-                summary = if (hostAudio) {
-                    "副屏运行时，电脑的声音从手机放出来"
-                } else {
-                    "只传画面，电脑的声音仍留在电脑上"
-                },
+                title = stringResource(R.string.host_audio_title),
+                summary = stringResource(
+                    if (hostAudio) R.string.host_audio_on else R.string.host_audio_off,
+                ),
                 checked = hostAudio,
                 onCheckedChange = onHostAudio,
             )
@@ -116,36 +118,39 @@ fun SettingsScreen(
             Spacer(Modifier.height(14.dp))
 
             SwitchCard(
-                title = "兼容模式（1080p / 30 帧）",
-                summary = if (compatMode) {
-                    "画面限制在 1080p、30 帧，下次开始副屏时生效"
-                } else {
-                    "按手机屏幕的分辨率传输，画面更清晰"
-                },
+                title = stringResource(R.string.compat_title),
+                summary = stringResource(
+                    if (compatMode) R.string.compat_on else R.string.compat_off,
+                ),
                 checked = compatMode,
                 onCheckedChange = onCompatMode,
             )
 
             Spacer(Modifier.height(14.dp))
 
+            LanguageCard(language, onLanguage)
+
+            Spacer(Modifier.height(14.dp))
+
             SettingsCard {
                 Column {
                     Text(
-                        "改用文件传输",
+                        stringResource(R.string.file_transfer_title),
                         color = Palette.TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "副屏和文件管理不能同时占着数据线。释放后手机会断开副屏，" +
-                            "在电脑上就能看到手机存储。",
+                        stringResource(R.string.file_transfer_body),
                         color = Palette.TextSecondary,
                         fontSize = 12.sp,
                     )
                     Spacer(Modifier.height(14.dp))
                     ActionButton(
-                        text = if (attached) "释放 USB，改用文件传输" else "数据线未连接",
+                        text = stringResource(
+                            if (attached) R.string.release_usb else R.string.no_cable,
+                        ),
                         enabled = attached,
                         onClick = onRelease,
                     )
@@ -161,6 +166,82 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * The language choice, as three chips rather than a list.
+ *
+ * Three options fit on one line, and the two named languages are written in
+ * themselves — someone who cannot read the current language still recognises
+ * "中文" or "English" without translating anything.
+ */
+@Composable
+private fun LanguageCard(language: AppLanguage, onLanguage: (AppLanguage) -> Unit) {
+    SettingsCard {
+        Column {
+            Text(
+                stringResource(R.string.language_title),
+                color = Palette.TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LanguageChip(
+                    label = stringResource(R.string.language_system),
+                    selected = language == AppLanguage.SYSTEM,
+                    onClick = { onLanguage(AppLanguage.SYSTEM) },
+                    modifier = Modifier.weight(1.2f),
+                )
+                LanguageChip(
+                    label = stringResource(R.string.language_chinese),
+                    selected = language == AppLanguage.CHINESE,
+                    onClick = { onLanguage(AppLanguage.CHINESE) },
+                    modifier = Modifier.weight(1f),
+                )
+                LanguageChip(
+                    label = stringResource(R.string.language_english),
+                    selected = language == AppLanguage.ENGLISH,
+                    onClick = { onLanguage(AppLanguage.ENGLISH) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier
+            .height(38.dp)
+            .clip(shape)
+            .background(
+                if (selected) Palette.Cyan.copy(alpha = 0.18f) else Color(0x14FFFFFF),
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) Palette.Cyan.copy(alpha = 0.55f) else Color.Transparent,
+                shape = shape,
+            )
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (selected) Palette.Cyan else Palette.TextSecondary,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
     }
 }
 

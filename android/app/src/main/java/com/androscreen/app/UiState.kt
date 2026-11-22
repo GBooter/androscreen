@@ -37,4 +37,6 @@ data class UiState(
      * link cannot carry it smoothly; the picture is softer, but it starts.
      */
     val compatMode: Boolean = false,
+    /** The language the settings page shows as chosen. */
+    val language: AppLanguage = AppLanguage.SYSTEM,
 )

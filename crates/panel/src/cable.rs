@@ -9,8 +9,13 @@
 //! There is one port, so both buttons always move it the same way; they are the
 //! two verbs the user might be looking for, not two commands. What tells them
 //! apart is the feedback line, which names the use the cable is being handed to.
+//!
+//! The words themselves are in [`crate::i18n`]; this module only decides which
+//! of them fit the cable as it is now.
 
 use androscreen_core::control::Request;
+
+use crate::i18n::{Lang, Words};
 
 /// Which end holds the cable.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -25,62 +30,66 @@ pub(crate) enum Cable {
 /// Each names the change it makes, so the pair always reads as the way the
 /// cable currently points.
 #[must_use]
-pub(crate) fn button_labels(cable: Cable) -> (&'static str, &'static str) {
+pub(crate) fn button_labels(lang: Lang, cable: Cable) -> (&'static str, &'static str) {
+    let words = Words::of(lang);
     match cable {
-        Cable::WithUs => ("关闭副屏", "改用文件传输"),
-        Cable::WithPhone => ("启用副屏", "关闭文件传输"),
+        Cable::WithUs => (words.screen_on_ours, words.transfer_on_ours),
+        Cable::WithPhone => (words.screen_on_theirs, words.transfer_on_theirs),
     }
 }
 
 /// What the secondary-screen button does from here.
 #[must_use]
-pub(crate) fn screen_action(cable: Cable) -> (Request, &'static str) {
+pub(crate) fn screen_action(lang: Lang, cable: Cable) -> (Request, &'static str) {
+    let words = Words::of(lang);
     match cable {
-        Cable::WithUs => (
-            Request::Release,
-            "副屏正在关闭：数据线交还手机，手机回到它自己的 USB 用途。",
-        ),
-        Cable::WithPhone => (Request::Enable, "已请求接管手机，副屏会在几秒内出现。"),
+        Cable::WithUs => (Request::Release, words.screen_done_ours),
+        Cable::WithPhone => (Request::Enable, words.screen_done_theirs),
     }
 }
 
 /// What the file-transfer button does from here.
 #[must_use]
-pub(crate) fn transfer_action(cable: Cable) -> (Request, &'static str) {
+pub(crate) fn transfer_action(lang: Lang, cable: Cable) -> (Request, &'static str) {
+    let words = Words::of(lang);
     match cable {
-        Cable::WithUs => (
-            Request::Release,
-            "已释放数据线。在手机的下拉通知里把 USB 用途选成“文件传输”，电脑上才会出现手机存储。",
-        ),
-        Cable::WithPhone => (
-            Request::Enable,
-            "一根数据线只能有一种用途：已收回它去当副屏，手机存储会断开。",
-        ),
+        Cable::WithUs => (Request::Release, words.transfer_done_ours),
+        Cable::WithPhone => (Request::Enable, words.transfer_done_theirs),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{button_labels, screen_action, transfer_action, Cable};
+    use crate::i18n::Lang;
     use androscreen_core::control::Request;
+
+    /// Every language the window can draw in.
+    const LANGUAGES: [Lang; 2] = [Lang::Zh, Lang::En];
 
     #[test]
     fn each_button_names_the_change_it_makes() {
-        assert_eq!(
-            button_labels(Cable::WithPhone),
-            ("启用副屏", "关闭文件传输")
-        );
-        assert_eq!(button_labels(Cable::WithUs), ("关闭副屏", "改用文件传输"));
+        for lang in LANGUAGES {
+            let (screen, transfer) = button_labels(lang, Cable::WithPhone);
+            let (screen_ours, transfer_ours) = button_labels(lang, Cable::WithUs);
+            // Both states have to be told apart, or one of the two labels is a
+            // word the buttons would never say.
+            assert_ne!(screen, screen_ours, "screen label, {lang:?}");
+            assert_ne!(transfer, transfer_ours, "transfer label, {lang:?}");
+            assert!(!screen.is_empty() && !transfer.is_empty(), "{lang:?}");
+        }
     }
 
     #[test]
     fn neither_button_is_ever_a_no_op() {
         // Every label promises a move, so no state may leave a button holding
         // the request that would keep the port where it already is.
-        assert_eq!(screen_action(Cable::WithPhone).0, Request::Enable);
-        assert_eq!(screen_action(Cable::WithUs).0, Request::Release);
-        assert_eq!(transfer_action(Cable::WithUs).0, Request::Release);
-        assert_eq!(transfer_action(Cable::WithPhone).0, Request::Enable);
+        for lang in LANGUAGES {
+            assert_eq!(screen_action(lang, Cable::WithPhone).0, Request::Enable);
+            assert_eq!(screen_action(lang, Cable::WithUs).0, Request::Release);
+            assert_eq!(transfer_action(lang, Cable::WithUs).0, Request::Release);
+            assert_eq!(transfer_action(lang, Cable::WithPhone).0, Request::Enable);
+        }
     }
 
     #[test]
@@ -88,9 +97,11 @@ mod tests {
         // One cable, one switch: whichever verb the user reached for, the port
         // ends up in the same place, and each button still explains the use it
         // handed the port to.
-        for cable in [Cable::WithPhone, Cable::WithUs] {
-            assert_eq!(screen_action(cable).0, transfer_action(cable).0);
-            assert_ne!(screen_action(cable).1, transfer_action(cable).1);
+        for lang in LANGUAGES {
+            for cable in [Cable::WithPhone, Cable::WithUs] {
+                assert_eq!(screen_action(lang, cable).0, transfer_action(lang, cable).0);
+                assert_ne!(screen_action(lang, cable).1, transfer_action(lang, cable).1);
+            }
         }
     }
 }

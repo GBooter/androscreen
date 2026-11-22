@@ -46,8 +46,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -243,18 +246,18 @@ private fun WideDashboard(
             ) {
                 Column {
                     Text(
-                        if (attached) "已就绪" else "等待连接",
+                        stringResource(
+                            if (attached) R.string.status_connected else R.string.status_waiting,
+                        ),
                         color = if (attached) Palette.Green else Palette.Amber,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (attached) {
-                            "手机可用作电脑的扩展屏幕"
-                        } else {
-                            "插入数据线后自动连接"
-                        },
+                        stringResource(
+                            if (attached) R.string.dash_ready_detail else R.string.dash_waiting_detail,
+                        ),
                         color = Palette.TextSecondary,
                         fontSize = 11.sp,
                     )
@@ -274,20 +277,21 @@ private fun WideDashboard(
 private fun Gauges(stats: HostStats?, gaugeSize: Dp = 112.dp) {
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         GaugeCard(
-            title = "处理器",
+            title = stringResource(R.string.gauge_processor),
             value = stats?.cpuPercent,
             color = Palette.Cyan,
-            detail = stats?.let { "${it.perCorePercent.size.coerceAtLeast(1)} 线程" }
-                ?: "等待电脑数据",
+            detail = stats?.let {
+                stringResource(R.string.gauge_threads, it.perCorePercent.size.coerceAtLeast(1))
+            } ?: stringResource(R.string.status_no_data),
             gaugeSize = gaugeSize,
             modifier = Modifier.weight(1f),
         )
         GaugeCard(
-            title = "内存",
+            title = stringResource(R.string.gauge_memory),
             value = stats?.memUsedPercent,
             color = Palette.Violet,
             detail = stats?.let { "${gib(it.memUsedKib)} / ${gib(it.memTotalKib)}" }
-                ?: "等待电脑数据",
+                ?: stringResource(R.string.status_no_data),
             gaugeSize = gaugeSize,
             modifier = Modifier.weight(1f),
         )
@@ -304,13 +308,15 @@ private fun CoreLoadCard(
     SectionCard(modifier = modifier, compact = compact) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "每核负载",
+                stringResource(R.string.core_load),
                 color = Palette.TextSecondary,
                 fontSize = 13.sp,
             )
             Spacer(Modifier.weight(1f))
             Text(
-                stats?.perCorePercent?.size?.let { "$it 线程" } ?: "—",
+                stats?.perCorePercent?.size?.let {
+                    stringResource(R.string.gauge_threads, it)
+                } ?: "—",
                 color = Palette.TextSecondary,
                 fontSize = 12.sp,
             )
@@ -351,14 +357,21 @@ private fun TemperatureCard(
             ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("电脑温度", color = Palette.TextSecondary, fontSize = 13.sp)
+            Text(
+                stringResource(R.string.temp_title),
+                color = Palette.TextSecondary,
+                fontSize = 13.sp,
+            )
             Spacer(Modifier.weight(1f))
             Text(
                 when {
-                    hottest != null -> "最高 ${temperature(hottest.celsius)}°C"
-                    stats == null -> "等待电脑数据"
-                    tempsSupported -> "无传感器"
-                    else -> "待更新"
+                    hottest != null -> stringResource(
+                        R.string.temp_hottest,
+                        temperature(hottest.celsius),
+                    )
+                    stats == null -> stringResource(R.string.status_no_data)
+                    tempsSupported -> stringResource(R.string.temp_no_sensor)
+                    else -> stringResource(R.string.temp_pending)
                 },
                 color = hottest?.let { heatColor(it.celsius) } ?: Palette.TextSecondary,
                 fontSize = 12.sp,
@@ -368,11 +381,13 @@ private fun TemperatureCard(
         Spacer(Modifier.height(gap))
         if (temps.isEmpty()) {
             Text(
-                when {
-                    stats == null -> "插好数据线后，这里会显示电脑各部件的实时温度"
-                    !tempsSupported -> "电脑端程序需要更新到 0.4.0 才能上报温度"
-                    else -> "这台电脑没有可读取的温度传感器"
-                },
+                stringResource(
+                    when {
+                        stats == null -> R.string.temp_empty_no_cable
+                        !tempsSupported -> R.string.temp_empty_old_host
+                        else -> R.string.temp_empty_no_sensor
+                    },
+                ),
                 color = Palette.TextSecondary,
                 fontSize = 11.sp,
             )
@@ -488,22 +503,22 @@ private fun temperature(celsius: Float): String = "${celsius.roundToInt()}"
 @Composable
 private fun UptimeCard(stats: HostStats?, modifier: Modifier = Modifier) {
     InfoCard(
-        title = "运行时长",
+        title = stringResource(R.string.uptime_title),
         value = stats?.let { uptime(it.uptimeSecs) } ?: "—",
-        hint = "电脑已持续运行",
+        hint = stringResource(R.string.uptime_hint),
         modifier = modifier,
     )
 }
 @Composable
 private fun LoadCard(stats: HostStats?, modifier: Modifier = Modifier) {
     InfoCard(
-        title = "系统负载",
+        title = stringResource(R.string.load_title),
         // No spaces around the slashes: the widest of these cards is still
         // narrow enough to cut off a three digit load if it is padded out.
         value = stats?.let {
             "${load(it.loadOne)}/${load(it.loadFive)}/${load(it.loadFifteen)}"
         } ?: "—",
-        hint = "1 / 5 / 15 分钟",
+        hint = stringResource(R.string.load_hint),
         modifier = modifier,
         valueSize = 13.sp,
     )
@@ -512,11 +527,7 @@ private fun LoadCard(stats: HostStats?, modifier: Modifier = Modifier) {
 @Composable
 private fun Hint(attached: Boolean, modifier: Modifier = Modifier) {
     Text(
-        if (attached) {
-            "保持亮屏 · 支持多指触控"
-        } else {
-            "插线自动连接 · 无需 USB 调试"
-        },
+        stringResource(if (attached) R.string.hint_attached else R.string.hint_detached),
         color = Palette.TextSecondary,
         fontSize = 11.sp,
         maxLines = 1,
@@ -566,25 +577,34 @@ private fun Header(attached: Boolean, onSettings: () -> Unit) {
                 fontWeight = FontWeight.Black,
             )
         }
-        Spacer(Modifier.width(12.dp))
-        Column {
+        Spacer(Modifier.width(10.dp))
+        // The name column yields to the pill and the gear. It used to be
+        // measured at its intrinsic width with a weight(1f) spacer beside it,
+        // and English — "USB secondary display" under "AndroScreen" beside
+        // "Waiting for PC" — came out about one gear wider than the screen:
+        // the settings button was pushed off the right edge and clipped.
+        Column(Modifier.weight(1f)) {
             Text(
                 // Chinese builds read 安卓副屏, everything else AndroScreen.
                 stringResource(R.string.app_name),
                 color = Palette.TextPrimary,
-                fontSize = 19.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.4.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "USB 扩展副屏",
+                stringResource(R.string.subtitle),
                 color = Palette.TextSecondary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
         StatusPill(attached)
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
         SettingsButton(onSettings)
     }
 }
@@ -598,15 +618,19 @@ private fun Header(attached: Boolean, onSettings: () -> Unit) {
  */
 @Composable
 private fun SettingsButton(onSettings: () -> Unit) {
+    // The gear is a glyph, which a screen reader would otherwise announce as
+    // nothing at all; the label is read from the same resources as the page.
+    val label = stringResource(R.string.goto_settings)
     Box(
         Modifier
-            .size(44.dp)
+            .size(38.dp)
             .clip(CircleShape)
             .background(Color(0x14FFFFFF))
-            .clickable { onSettings() },
+            .clickable { onSettings() }
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text("\u2699", color = Palette.TextSecondary, fontSize = 17.sp)
+        Text("\u2699", color = Palette.TextSecondary, fontSize = 15.sp)
     }
 }
 
@@ -627,7 +651,7 @@ private fun StatusPill(attached: Boolean) {
         Modifier
             .clip(RoundedCornerShape(50))
             .background(Color(0x14FFFFFF))
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -638,10 +662,11 @@ private fun StatusPill(attached: Boolean) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            if (attached) "已连接" else "等待连接",
+            stringResource(if (attached) R.string.status_connected else R.string.status_waiting),
             color = color,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
         )
     }
 }
@@ -692,11 +717,16 @@ private fun GaugeCard(
             }
         }
         Spacer(Modifier.height(gap))
+        // Two lines, centred: the placeholder sentence is the widest thing
+        // that ever lands here ("Waiting for computer data" does not fit a
+        // half-width card on one line), and cutting it to "Waiting for
+        // computer d…" made the idle screen look broken.
         Text(
             detail,
             color = Palette.TextSecondary,
             fontSize = 12.sp,
-            maxLines = 1,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -842,7 +872,16 @@ private fun InfoCard(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(4.dp))
-        Text(hint, color = Palette.TextSecondary, fontSize = 11.sp, maxLines = 1)
+        // One line by construction, so both cards in the row stay the same
+        // height; the ellipsis is the backstop for a translation longer than
+        // the card can hold.
+        Text(
+            hint,
+            color = Palette.TextSecondary,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -882,7 +921,7 @@ private fun NoticeCard(message: String, onDismiss: () -> Unit) {
             modifier = Modifier.weight(1f),
         )
         Text(
-            "知道了",
+            stringResource(R.string.got_it),
             color = Palette.TextPrimary,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
@@ -912,7 +951,7 @@ private fun StartButton(enabled: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            if (enabled) "用作扩展屏" else "等待数据线连接",
+            stringResource(if (enabled) R.string.use_as_display else R.string.status_waiting),
             color = if (enabled) Color(0xFF06121C) else Palette.TextSecondary,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -929,7 +968,7 @@ private fun StartButton(enabled: Boolean, onClick: () -> Unit) {
 @Composable
 private fun FileTransferLink(onRelease: () -> Unit, modifier: Modifier = Modifier) {
     Text(
-        "改用文件传输（释放 USB）",
+        stringResource(R.string.file_transfer_link),
         color = Palette.Cyan,
         fontSize = 11.sp,
         maxLines = 1,
@@ -947,14 +986,15 @@ private fun gib(kib: Long): String {
     }
 }
 
+@Composable
 private fun uptime(seconds: Long): String {
     val days = seconds / 86_400
     val hours = seconds % 86_400 / 3_600
     val minutes = seconds % 3_600 / 60
     return when {
-        days > 0 -> "${days}天 ${hours}时"
-        hours > 0 -> "${hours}时 ${minutes}分"
-        else -> "${minutes}分"
+        days > 0 -> stringResource(R.string.uptime_days, days, hours)
+        hours > 0 -> stringResource(R.string.uptime_hours, hours, minutes)
+        else -> stringResource(R.string.uptime_minutes, minutes)
     }
 }
 

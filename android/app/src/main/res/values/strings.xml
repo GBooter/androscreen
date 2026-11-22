@@ -4,4 +4,100 @@
          get 安卓副屏 from res/values-zh/strings.xml; every other locale keeps
          the product name. -->
     <string name="app_name">AndroScreen</string>
+
+    <!-- Shared words -->
+    <string name="status_connected">Connected</string>
+    <string name="status_waiting">Waiting for PC</string>
+    <string name="use_as_display">Use as extended display</string>
+    <string name="goto_settings">Settings</string>
+    <string name="got_it">Got it</string>
+    <string name="subtitle">USB display</string>
+    <string name="no_cable">Screen not connected</string>
+
+    <!-- Dashboard -->
+    <string name="dash_ready_detail">This phone can extend the computer\'s screen</string>
+    <string name="dash_waiting_detail">Connects by itself once the cable is in</string>
+    <string name="gauge_processor">Processor</string>
+    <string name="gauge_memory">Memory</string>
+    <string name="gauge_threads">%1$d threads</string>
+    <string name="status_no_data">Waiting for computer data</string>
+    <string name="core_load">Load per core</string>
+    <string name="temp_title">Computer temperature</string>
+    <string name="temp_hottest">Peak %1$s°C</string>
+    <string name="temp_no_sensor">No sensor</string>
+    <string name="temp_pending">Not reported yet</string>
+    <string name="temp_empty_no_cable">Temperatures of each part appear here once the cable is in</string>
+    <string name="temp_empty_old_host">Update the computer\'s program to 0.4.0 to report temperatures</string>
+    <string name="temp_empty_no_sensor">This computer has no readable temperature sensor</string>
+    <string name="uptime_title">Uptime</string>
+    <string name="uptime_hint">Since the last boot</string>
+    <string name="uptime_days">%1$dd %2$dh</string>
+    <string name="uptime_hours">%1$dh %2$dm</string>
+    <string name="uptime_minutes">%1$dm</string>
+    <string name="load_title">System load</string>
+    <string name="load_hint">1 / 5 / 15 min</string>
+    <string name="hint_attached">Screen stays on · touch</string>
+    <string name="hint_detached">Connects on plug-in · no USB debugging</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="auto_start_title">Start the screen when plugged in</string>
+    <string name="auto_start_on">Plugging in turns the phone into the computer\'s screen</string>
+    <string name="auto_start_off">Plugging in only shows status; start it when you need it</string>
+    <string name="host_audio_title">Play the computer\'s sound</string>
+    <string name="host_audio_on">While streaming, the computer\'s audio comes out of the phone</string>
+    <string name="host_audio_off">Only the picture is sent; the sound stays on the computer</string>
+    <string name="compat_title">Compatibility mode (1080p / 30 fps)</string>
+    <string name="compat_on">Held to 1080p at 30 fps from the next start</string>
+    <string name="compat_off">Transfers at the phone\'s own resolution, which is sharper</string>
+    <string name="file_transfer_title">Switch to file transfer</string>
+    <string name="file_transfer_link">Switch to file transfer</string>
+    <string name="file_transfer_body">The screen and file management cannot share one cable. Releasing it disconnects the screen, and the phone storage appears on the computer.</string>
+    <string name="release_usb">Release USB for file transfer</string>
+    <string name="language_title">Language</string>
+    <string name="language_system">Follow system</string>
+    <string name="language_chinese">中文</string>
+    <string name="language_english">English</string>
+
+    <!-- The secondary display itself -->
+    <string name="switching_direction">Turning…</string>
+    <string name="picture_returns">The picture returns in a moment</string>
+    <string name="starting_screen">Starting the screen…</string>
+    <string name="creating_display">The computer is creating a virtual display</string>
+    <string name="exit_hint_expanded">Exit the secondary screen, hold to exit</string>
+    <string name="exit_hint_collapsed">Exit the secondary screen, tap to expand</string>
+    <string name="expand_exit_panel">Expand the exit panel</string>
+    <string name="collapse_exit_panel">Collapse the exit panel</string>
+    <string name="hold_to_exit_hint">Hold to exit the secondary screen</string>
+    <string name="keep_holding">Keep holding…</string>
+    <string name="hold_to_exit">Hold to exit</string>
+
+    <!-- Notices: what went wrong, and which end of the cable to look at -->
+    <string name="notice_usb_permission">Allow AndroScreen to access the USB device in the system dialog</string>
+    <string name="notice_permission_failed">Could not ask for USB access: %1$s</string>
+    <string name="unknown_error">unknown error</string>
+    <string name="notice_usb_unavailable">The USB connection is not usable; unplug the cable and plug it in again</string>
+    <string name="notice_permission_denied">USB access was not granted, so the phone cannot connect</string>
+    <string name="notice_reconnecting">Reconnecting the picture…</string>
+    <string name="notice_released">Asked to release the cable; choose “File transfer” on the phone to see its storage</string>
+    <string name="notice_disconnected">The connection was lost; plug the cable in again to recover</string>
+    <string name="notice_no_picture">The computer sent no picture; check that the AndroScreen service is running there</string>
+    <string name="notice_start_failed">The screen could not start: %1$s</string>
+    <string name="notice_accessory_unknown">The phone has not seen the computer\'s request yet. Unplug the cable and try again; if it stays like this, this phone may restrict USB accessory mode</string>
+    <string name="notice_host_missing">The cable is connected but the computer\'s AndroScreen was not found. Check that the androscreen service is running</string>
+
+    <!-- Why the virtual screen failed on the computer side -->
+    <string name="fail_no_evdi">The computer could not create the virtual screen: no evdi display found. Run androscreen --evdi-scan there</string>
+    <string name="fail_not_configured">The computer did not enable the new screen; turn AndroScreen on in the display settings and try again</string>
+    <string name="fail_encoder">Video encoding is unavailable on the computer; check that ffmpeg is installed</string>
+    <string name="fail_generic">The computer could not create the virtual screen: %1$s</string>
+
+    <!-- Host error codes -->
+    <string name="err_touch">Touch injection is unavailable on the computer; the screen still works</string>
+    <string name="err_audio">Audio forwarding is unavailable on the computer; the screen still works</string>
+    <string name="err_busy">The computer is already streaming</string>
+    <string name="err_display">The computer cannot create the extended screen</string>
+    <string name="err_encoder">Video encoding is unavailable on the computer</string>
+    <string name="err_bad_request">The computer rejected the screen settings</string>
+    <string name="err_generic">The computer said: %1$s</string>
 </resources>

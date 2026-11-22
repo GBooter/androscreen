@@ -17,6 +17,10 @@ fi
 echo "==> installing $(basename "$DEB")"
 sudo dpkg -i "$DEB"
 
+if [ ! -e /sys/module/evdi ]; then
+    echo "note: evdi 会在下次重启后生效（登录期间加载显卡驱动会让 deepin 25.3 的桌面卡死）"
+fi
+
 echo "==> restarting the service for the current user"
 systemctl --user daemon-reload || true
 systemctl --user restart androscreen || true

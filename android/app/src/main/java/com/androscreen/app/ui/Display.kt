@@ -53,12 +53,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.androscreen.app.R
 import com.androscreen.app.protocol.TouchCodec
 import kotlinx.coroutines.delay
 
@@ -275,14 +277,14 @@ private fun SwitchingHint(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "正在切换方向…",
+            stringResource(R.string.switching_direction),
             color = Palette.TextPrimary,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            "画面稍后自动恢复",
+            stringResource(R.string.picture_returns),
             color = Palette.TextSecondary,
             fontSize = 11.sp,
         )
@@ -307,14 +309,14 @@ private fun StartingOverlay(modifier: Modifier = Modifier) {    Box(
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                "正在启动副屏…",
+                stringResource(R.string.starting_screen),
                 color = Palette.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "电脑端正在创建虚拟显示器",
+                stringResource(R.string.creating_display),
                 color = Palette.TextSecondary,
                 fontSize = 12.sp,
             )
@@ -346,6 +348,17 @@ private fun ExitRail(
     var lastAction by remember { mutableStateOf(0) }
 
     val context = LocalContext.current
+    // The rail's words are read here rather than inside `semantics` or
+    // `clickable`: those lambdas are not composable, so a `stringResource`
+    // called in them would not compile.
+    val exitHint = stringResource(
+        if (expanded) R.string.exit_hint_expanded else R.string.exit_hint_collapsed,
+    )
+    val expandLabel = stringResource(R.string.expand_exit_panel)
+    val collapseLabel = stringResource(R.string.collapse_exit_panel)
+    val holdHint = stringResource(R.string.hold_to_exit_hint)
+    val holdLabel = stringResource(R.string.hold_to_exit)
+    val holdingLabel = stringResource(R.string.keep_holding)
     val motionOff = remember {
         Settings.Global.getFloat(
             context.contentResolver,
@@ -402,11 +415,7 @@ private fun ExitRail(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
             )
             .semantics {
-                contentDescription = if (expanded) {
-                    "退出副屏，长按退出"
-                } else {
-                    "退出副屏，轻点展开"
-                }
+                contentDescription = exitHint
             },
     ) {
         // A wide band reaches both the physical edge and the area a system
@@ -420,7 +429,7 @@ private fun ExitRail(
                     if (expanded) {
                         Modifier
                     } else {
-                        Modifier.clickable(onClickLabel = "展开退出面板") {
+                        Modifier.clickable(onClickLabel = expandLabel) {
                             expanded = true
                             lastAction++
                         }
@@ -464,7 +473,7 @@ private fun ExitRail(
                 Box(
                     Modifier
                         .size(40.dp)
-                        .clickable(onClickLabel = "收起退出面板") {
+                        .clickable(onClickLabel = collapseLabel) {
                             expanded = false
                             holding = false
                             lastAction++
@@ -489,7 +498,7 @@ private fun ExitRail(
                                 holding = false
                             }
                         }
-                        .semantics { contentDescription = "长按退出副屏" }
+                        .semantics { contentDescription = holdHint }
                         .padding(end = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -514,7 +523,7 @@ private fun ExitRail(
                         )
                     }
                     Text(
-                        if (holding) "继续按住…" else "长按退出",
+                        if (holding) holdingLabel else holdLabel,
                         color = if (holding) Palette.Cyan else Palette.TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,

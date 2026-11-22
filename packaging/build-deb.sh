@@ -47,47 +47,59 @@ if [[ ! -f $APK ]]; then
   exit 1
 fi
 
-# The settings window labels the download with the version this package was
-# built from (env!("CARGO_PKG_VERSION")), not with the APK's real versionName.
-# Bundling a stale APK therefore ships an old phone app while the desktop
-# claims it is current, and the user has no way to notice. Refuse that build.
-AAPT2=${AAPT2:-$(command -v aapt2 || true)}
-if [[ -z $AAPT2 ]]; then
-  for candidate in "$HOME"/Android/Sdk/build-tools/*/aapt2; do
-    if [[ -x $candidate ]]; then
-      AAPT2=$candidate
-      break
-    fi
-  done
-fi
-# The label on the settings window and the app on the phone have to say the
-# same thing, so a package that cannot prove it is refused rather than guessed.
-if [[ -z $AAPT2 ]]; then
-  echo "error: aapt2 not found; cannot verify the bundled APK version" >&2
-  echo "       install the Android build-tools or set AAPT2" >&2
-  exit 1
-fi
-BADGING=$("$AAPT2" dump badging "$APK")
-APK_VERSION=$(echo "$BADGING" \
-  | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
-if [[ -z $APK_VERSION ]]; then
-  echo "error: cannot read versionName from $APK" >&2
-  exit 1
-fi
-# A debuggable app on a phone is a security hole and is what an unsigned
-# release silently became before the release build was signed.
-if grep -q 'application-debuggable' <<<"$BADGING"; then
-  echo "error: $APK is debuggable; package a signed release build" >&2
-  echo "       rebuild with: ./gradlew assembleRelease" >&2
-  exit 1
+# The phone app's versionName. Two releases share one number only when the
+# phone app really changed with the desktop; bundling a stale APK behind a fresh
+# version number is what this check refuses. A build box without the Android SDK
+# can still bundle an APK that was built and signed elsewhere: the caller states
+# its version with APK_VERSION instead of having aapt2 read it, and a mismatch is
+# accepted only when ALLOW_OLDER_APK=1 says this release did not touch the app.
+if [[ -z ${APK_VERSION:-} ]]; then
+  AAPT2=${AAPT2:-$(command -v aapt2 || true)}
+  if [[ -z $AAPT2 ]]; then
+    for candidate in "$HOME"/Android/Sdk/build-tools/*/aapt2; do
+      if [[ -x $candidate ]]; then
+        AAPT2=$candidate
+        break
+      fi
+    done
+  fi
+  # The label on the settings window and the app on the phone have to say the
+  # same thing, so a package that cannot prove it is refused rather than guessed.
+  if [[ -z $AAPT2 ]]; then
+    echo "error: aapt2 not found; cannot verify the bundled APK version" >&2
+    echo "       install the Android build-tools, set AAPT2, or pass" >&2
+    echo "       APK_VERSION=<versionName> with a prebuilt APK" >&2
+    exit 1
+  fi
+  BADGING=$("$AAPT2" dump badging "$APK")
+  APK_VERSION=$(echo "$BADGING" \
+    | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+  if [[ -z $APK_VERSION ]]; then
+    echo "error: cannot read versionName from $APK" >&2
+    exit 1
+  fi
+  # A debuggable app on a phone is a security hole and is what an unsigned
+  # release silently became before the release build was signed.
+  if grep -q 'application-debuggable' <<<"$BADGING"; then
+    echo "error: $APK is debuggable; package a signed release build" >&2
+    echo "       rebuild with: ./gradlew assembleRelease" >&2
+    exit 1
+  fi
+else
+  echo "==> using the supplied APK version $APK_VERSION (aapt2 not consulted)"
 fi
 if [[ $APK_VERSION != "$VERSION" ]]; then
-  echo "error: APK versionName '$APK_VERSION' != package version '$VERSION'" >&2
-  echo "       APK: $APK" >&2
-  echo "       bump versionName in android/app/build.gradle.kts and rebuild" >&2
-  exit 1
+  if [[ ${ALLOW_OLDER_APK:-0} == 1 ]]; then
+    echo "==> warning: APK versionName '$APK_VERSION' != package version '$VERSION'"
+    echo "             (ALLOW_OLDER_APK=1: the phone app is unchanged here)"
+  else
+    echo "error: APK versionName '$APK_VERSION' != package version '$VERSION'" >&2
+    echo "       APK: $APK" >&2
+    echo "       bump versionName in android/app/build.gradle.kts and rebuild" >&2
+    exit 1
+  fi
 fi
-echo "==> APK $APK_VERSION matches package $VERSION ($APK)"
+echo "==> APK $APK_VERSION bundled with package $VERSION ($APK)"
 
 echo "==> staging $STAGE"
 if [[ -d $STAGE ]]; then
@@ -114,6 +126,10 @@ install -Dm644 "$ROOT/packaging/systemd/androscreen-evdi.service" \
 
 if [[ -n $APK ]]; then
   install -Dm644 "$APK" "$STAGE/usr/share/androscreen/androscreen.apk"
+  # The window labels the download with the phone app's own version, which can
+  # differ from the package's when a release only touches the desktop.
+  printf '%s\n' "$APK_VERSION" > "$STAGE/usr/share/androscreen/apk-version"
+  chmod 0644 "$STAGE/usr/share/androscreen/apk-version"
 fi
 
 WORK=$(mktemp -d)
@@ -195,12 +211,57 @@ if command -v dkms >/dev/null 2>&1; then
     dkms install --force -m "$EVDI_PACKAGE" -v "$EVDI_VERSION" >/dev/null 2>&1 || true
 fi
 
-# A stale module may have been loaded with initial_device_count=0.
-if /usr/bin/androscreen --evdi-scan 2>/dev/null | grep -q '^no evdi virtual display cards found$'; then
-    modprobe -r evdi >/dev/null 2>&1 || true
+# The virtual-display module has to be in place before the display manager
+# starts. Loading it into a live X11 session makes the running X server hot-add
+# a DRM card, after which the compositor's OpenGL initialization hangs and the
+# whole desktop freezes until the X session is restarted (deepin 25.3, verified:
+# the X server keeps answering, a restarted kwin reports "Freeze in OpenGL
+# initialization detected"). /etc/modules-load.d/androscreen.conf already loads
+# it at boot, so an install defers the load whenever an X11 session is up and
+# lets the settings window ask for the one reboot. A Wayland/Treeland session
+# does not go through Xorg's GPU hotplug and is loaded immediately.
+evdi_loaded=0
+if [ -d /sys/module/evdi ]; then
+    evdi_loaded=1
 fi
-modprobe evdi >/dev/null 2>&1 || true
+
+x11_session_running() {
+    command -v pgrep >/dev/null 2>&1 || return 1
+    pgrep -x Xorg >/dev/null 2>&1 || pgrep -x kwin_x11 >/dev/null 2>&1
+}
+
+evdi_has_card() {
+    [ -n "$(ls -d /sys/class/drm/card*-DVI-I-* 2>/dev/null)" ]
+}
+
+if [ "$evdi_loaded" -eq 1 ] && evdi_has_card; then
+    # An upgrade: the card is already there, nothing may be touched.
+    :
+elif x11_session_running; then
+    # Defer to the next boot and leave a note the settings window reads. The
+    # note promises a working module, so it is only written when DKMS really
+    # produced one for this kernel; otherwise the window reports the build
+    # failure instead of asking for a reboot that would not help.
+    if command -v modinfo >/dev/null 2>&1 && modinfo -n evdi >/dev/null 2>&1; then
+        install -d -m 0755 /run/androscreen 2>/dev/null || true
+        printf 'evdi is loaded before the display manager at the next boot\n' \
+            > /run/androscreen/pending-reboot 2>/dev/null || true
+    fi
+else
+    # No X11 session (Wayland, or a text console): safe to load now. A stale
+    # module loaded with initial_device_count=0 is replaced so a card exists.
+    modprobe -r evdi >/dev/null 2>&1 || true
+    modprobe evdi >/dev/null 2>&1 || true
+    if [ -d /sys/module/evdi ]; then
+        evdi_loaded=1
+    fi
+fi
 modprobe uinput >/dev/null 2>&1 || true
+
+# A note left by an earlier install no longer applies once the card is live.
+if [ "$evdi_loaded" -eq 1 ] && evdi_has_card; then
+    rm -f /run/androscreen/pending-reboot
+fi
 
 # Secure Boot refuses modules whose signature the firmware does not trust. evdi
 # is signed by the DKMS key built on this machine, and that key becomes trusted
@@ -235,7 +296,8 @@ fi
 
 if command -v udevadm >/dev/null 2>&1; then
     udevadm control --reload-rules || true
-    udevadm trigger --subsystem-match=usb || true
+    # Only the node that was just created. Replaying every USB device
+    # (`--subsystem-match=usb`) churns input devices for no benefit here.
     udevadm trigger --subsystem-match=misc --sysname-match=uinput || true
 fi
 
@@ -249,7 +311,11 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable "$EVDI_PACKAGE.service" >/dev/null 2>&1 || true
-    systemctl start "$EVDI_PACKAGE.service" >/dev/null 2>&1 || true
+    # Starting the unit runs modprobe, which must not happen while an X11
+    # session is up and the module was deliberately left for the next boot.
+    if [ "$evdi_loaded" -eq 1 ]; then
+        systemctl start "$EVDI_PACKAGE.service" >/dev/null 2>&1 || true
+    fi
 
     install -d /etc/systemd/user/default.target.wants
     ln -sf /usr/lib/systemd/user/androscreen.service \
@@ -264,6 +330,16 @@ if command -v systemctl >/dev/null 2>&1; then
             systemctl --user daemon-reload >/dev/null 2>&1 || true
         runuser -u "$user" -- env XDG_RUNTIME_DIR="$runtime" \
             systemctl --user restart androscreen.service >/dev/null 2>&1 || true
+        # One notification, because the install ends without the window that
+        # would explain the missing display (the app store only shows "done").
+        if [ -e /run/androscreen/pending-reboot ] \
+            && command -v notify-send >/dev/null 2>&1; then
+            runuser -u "$user" -- env XDG_RUNTIME_DIR="$runtime" \
+                DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" DISPLAY=:0 \
+                notify-send -a androscreen -i androscreen "安卓副屏" \
+                "已安装。重启一次即可开始使用：deepin 25.3 的 X11 桌面不支持在登录期间加载显卡驱动，因此安装时没有加载；之后升级不再需要重启。" \
+                >/dev/null 2>&1 || true
+        fi
     done
 fi
 

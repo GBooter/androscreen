@@ -88,7 +88,7 @@ dependencies = [
 
 [[package]]
 name = "androscreen"
-version = "0.4.29"
+version = "0.4.31"
 dependencies = [
  "androscreen-core",
  "anyhow",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "androscreen-core"
-version = "0.4.29"
+version = "0.4.31"
 dependencies = [
  "serde",
  "serde_json",
@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "androscreen-settings"
-version = "0.4.29"
+version = "0.4.31"
 dependencies = [
  "androscreen-core",
  "libc",

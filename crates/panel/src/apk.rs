@@ -4,8 +4,13 @@
 //! it, but "it is somewhere under /usr/share" is not an answer a user can act
 //! on: they need a file they can send to the phone over a chat app, a cable, or
 //! a QR code. This module finds that copy and puts it where downloads live.
+//!
+//! Everything it says to the user goes through [`crate::i18n`], including the
+//! title and the buttons of the save dialog it borrows from the desktop.
 
 use std::path::{Path, PathBuf};
+
+use crate::i18n::{self, Lang, Words};
 
 /// Where the package manager puts the phone app.
 const PACKAGED: &[&str] = &[
@@ -107,21 +112,22 @@ fn parse_download_dir(text: &str, home: &Path) -> Option<PathBuf> {
 ///
 /// Returns a sentence to show the user when the package is missing from this
 /// build, or when the copy cannot be written.
-pub(crate) fn save() -> Result<PathBuf, String> {
-    let source = source().ok_or_else(missing)?;
-    copy_into(&source, &download_dir())
+pub(crate) fn save(lang: Lang) -> Result<PathBuf, String> {
+    let source = source().ok_or_else(|| missing(lang))?;
+    copy_into(lang, &source, &download_dir())
 }
 
-fn missing() -> String {
-    "这个安装里没有手机端 APK；请从发布页下载，或在项目目录执行 packaging/build-deb.sh。".to_owned()
+fn missing(lang: Lang) -> String {
+    Words::of(lang).apk_missing.to_owned()
 }
 
 /// Copies `source` into `dir`, never overwriting a file already there.
-fn copy_into(source: &Path, dir: &Path) -> Result<PathBuf, String> {
+fn copy_into(lang: Lang, source: &Path, dir: &Path) -> Result<PathBuf, String> {
     std::fs::create_dir_all(dir)
-        .map_err(|error| format!("无法创建下载目录 {}：{error}", dir.display()))?;
+        .map_err(|error| i18n::apk_dir_failed(lang, dir, &error.to_string()))?;
     let target = free_name(dir, &file_name());
-    std::fs::copy(source, &target).map_err(|error| format!("保存失败：{error}"))?;
+    std::fs::copy(source, &target)
+        .map_err(|error| i18n::apk_save_failed(lang, &error.to_string()))?;
     Ok(target)
 }
 
@@ -145,16 +151,16 @@ pub(crate) enum SaveOutcome {
 ///
 /// Returns a sentence to show the user when the packaged APK is missing or the
 /// copy to the chosen place fails.
-pub(crate) fn ask() -> Result<SaveOutcome, String> {
-    let source = source().ok_or_else(missing)?;
+pub(crate) fn ask(lang: Lang) -> Result<SaveOutcome, String> {
+    let source = source().ok_or_else(|| missing(lang))?;
     let suggested = download_dir().join(file_name());
-    let Some(command) = dialog_command(&suggested) else {
+    let Some(command) = dialog_command(lang, &suggested) else {
         return Ok(SaveOutcome::NoDialog);
     };
     let output = std::process::Command::new(&command.program)
         .args(&command.arguments)
         .output()
-        .map_err(|error| format!("打不开保存对话框：{error}"))?;
+        .map_err(|error| i18n::apk_dialog_failed(lang, &error.to_string()))?;
     if !output.status.success() {
         // Cancelling is a failure status with nothing on stdout.
         return Ok(SaveOutcome::Cancelled);
@@ -165,7 +171,7 @@ pub(crate) fn ask() -> Result<SaveOutcome, String> {
     }
     let chosen = PathBuf::from(chosen);
     std::fs::copy(&source, &chosen)
-        .map_err(|error| format!("保存到 {} 失败：{error}", chosen.display()))?;
+        .map_err(|error| i18n::apk_save_to_failed(lang, &chosen, &error.to_string()))?;
     Ok(SaveOutcome::Saved(chosen))
 }
 
@@ -176,9 +182,14 @@ struct Dialog {
 }
 
 /// The save dialog this desktop provides, along with the file name to suggest.
-fn dialog_command(suggested: &Path) -> Option<Dialog> {
+///
+/// The dialog is the desktop's own, so its title and its buttons are the ones
+/// the user reads: they are taken from the same [`Words`] the window uses, and
+/// a dialog that opened in the other language would be the one piece of the
+/// page that did not follow the switch.
+fn dialog_command(lang: Lang, suggested: &Path) -> Option<Dialog> {
     let file = suggested.to_string_lossy().into_owned();
-    let title = "保存手机安装包";
+    let title = Words::of(lang).save_dialog_title;
     let tools: [(&str, Vec<String>); 3] = [
         (
             "zenity",
@@ -225,32 +236,41 @@ fn dialog_command(suggested: &Path) -> Option<Dialog> {
     let name = suggested.file_name()?.to_string_lossy().into_owned();
     Some(Dialog {
         program: "python3".to_owned(),
-        arguments: vec!["-c".to_owned(), GTK_SAVE_DIALOG.to_owned(), folder, name],
+        arguments: vec!["-c".to_owned(), gtk_script(lang), folder, name],
     })
 }
 
 /// A GTK3 save dialog: folder in `sys.argv[1]`, suggested name in `argv[2]`.
 ///
-/// It lives here rather than in a file of its own so that the whole fallback
-/// stays one screen long and cannot drift from the arguments above.
-const GTK_SAVE_DIALOG: &str = r#"
+/// It is built here rather than kept as a constant so that the dialog's title
+/// and its two buttons are the same words the window draws; the script has no
+/// braces of its own, so the language can be filled in directly.
+fn gtk_script(lang: Lang) -> String {
+    let words = Words::of(lang);
+    format!(
+        r#"
 import sys
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 dialog = Gtk.FileChooserDialog(
-    title="保存手机安装包",
+    title="{title}",
     action=Gtk.FileChooserAction.SAVE,
 )
-dialog.add_buttons("取消", Gtk.ResponseType.CANCEL, "保存", Gtk.ResponseType.ACCEPT)
+dialog.add_buttons("{cancel}", Gtk.ResponseType.CANCEL, "{save}", Gtk.ResponseType.ACCEPT)
 dialog.set_do_overwrite_confirmation(True)
 dialog.set_current_folder(sys.argv[1])
 dialog.set_current_name(sys.argv[2])
 if dialog.run() == Gtk.ResponseType.ACCEPT:
     print(dialog.get_filename())
 dialog.destroy()
-"#;
+"#,
+        title = words.save_dialog_title,
+        cancel = words.cancel,
+        save = words.save,
+    )
+}
 
 /// Whether an executable is reachable through `PATH`.
 fn in_path(program: &str) -> bool {
@@ -323,8 +343,8 @@ XDG_DOWNLOAD_DIR=\"$HOME/下载\"\n";
         let source = dir.join("fake-source.apk");
         std::fs::write(&source, b"apk bytes").expect("fixture");
 
-        let first = copy_into(&source, &dir).expect("copy");
-        let second = copy_into(&source, &dir).expect("copy again");
+        let first = copy_into(Lang::Zh, &source, &dir).expect("copy");
+        let second = copy_into(Lang::Zh, &source, &dir).expect("copy again");
         assert_eq!(first.file_name().expect("name"), file_name().as_str());
         assert_ne!(first, second, "the second copy gets its own file");
         assert_eq!(std::fs::read(&second).expect("read"), b"apk bytes");
@@ -339,7 +359,7 @@ XDG_DOWNLOAD_DIR=\"$HOME/下载\"\n";
         // Whichever tool this host answers with, it has to be told what the
         // file should be called, or the user has to type the name back in.
         let suggested = Path::new("/home/someone/下载/androscreen-0.4.0.apk");
-        if let Some(dialog) = dialog_command(suggested) {
+        if let Some(dialog) = dialog_command(Lang::Zh, suggested) {
             assert_ne!(dialog.program, "");
             assert!(
                 dialog
@@ -349,6 +369,32 @@ XDG_DOWNLOAD_DIR=\"$HOME/下载\"\n";
                 "{:?}",
                 dialog.arguments
             );
+        }
+    }
+
+    #[test]
+    fn the_save_dialog_speaks_the_window_language() {
+        // The dialog belongs to the desktop, not to this window, so nothing
+        // translates it for us: it has to be handed the words to draw.
+        let suggested = Path::new("/home/someone/Downloads/androscreen-0.4.0.apk");
+        for lang in [Lang::Zh, Lang::En] {
+            let words = Words::of(lang);
+            let script = gtk_script(lang);
+            assert!(script.contains(words.save_dialog_title), "{lang:?}");
+            assert!(script.contains(words.cancel), "{lang:?}");
+            assert!(script.contains(words.save), "{lang:?}");
+            if let Some(dialog) = dialog_command(lang, suggested) {
+                if dialog.program != "python3" {
+                    assert!(
+                        dialog
+                            .arguments
+                            .iter()
+                            .any(|argument| argument.ends_with(words.save_dialog_title)),
+                        "{lang:?}: {:?}",
+                        dialog.arguments
+                    );
+                }
+            }
         }
     }
 
